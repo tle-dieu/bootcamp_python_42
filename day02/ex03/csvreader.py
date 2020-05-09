@@ -1,38 +1,59 @@
+import os.path
+
+
 class CsvReader:
     def __init__(self, file, sep=',', header=False, skip_top=0, skip_bottom=0):
-        self.file = open(file, 'r')
+        self.filename = file
         self.sep = sep
         self.header = header
         self.skip_top = skip_top
         self.skip_bottom = skip_bottom
         self.data = []
+        self.dataheader = []
+        self.file = None
 
     def __enter__(self):
-        content = self.file.read()[self.skip_top:]
-        if self.skip_top > 0:
-            content = content[self.skip_top:]
-        if self.skip_bottom > 0:
-            content = content[:-self.skip_bottom]
+        try:
+            self.file = open(self.filename, 'r')
+        except FileNotFoundError:
+            return None
+        content = [[x.strip() for x in x.split(self.sep)]
+                   for x in self.file.read().splitlines()]
+        list_len = len(content[0])
+        for i in content[1:]:
+            if len(i) != list_len:
+                return None
+        if self.header:
+            self.dataheader = content[0]
+            content = content[1:]
+        self.data = content[self.skip_top:len(content) - 1 - self.skip_bottom]
+        return self
 
     def __exit__(self, exception_type, exception_value, traceback):
         self.file.close()
 
     def getdata(self):
-        return self.data[1:] if self.header and self.data else self.data
+        return self.data
 
     def getheader(self):
-        return self.data[1] if self.header and self.data else None
+        return self.dataheader
 
 
 def main():
-    with CsvReader('test.csv') as file:
+    print('############### GOOD ###############')
+    with CsvReader(f'{os.path.dirname(__file__)}/good.csv', ',', True) as file:
         if file is None:
             print("File is corrupted")
         else:
-            data = file.getdata()
-            header = file.getheader()
-            print(data)
-            print(header)
+            print(f"===== HEADER =====\n{file.getheader()}")
+            print(f"===== DATA =====\n{file.getdata()}")
+    print('############### BAD ###############')
+    with CsvReader(f'{os.path.dirname(__file__)}/bad.csv') as file:
+        if file is None:
+            print("File is corrupted")
+        else:
+            print(f"===== HEADER =====\n{file.getheader()}")
+            print(f"===== DATA =====\n{file.getdata()}")
 
 
 if __name__ == "__main__":
